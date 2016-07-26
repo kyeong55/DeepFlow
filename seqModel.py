@@ -1,25 +1,38 @@
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Merge, Activation
 
-l1sb = Sequential()
-l1cb = Sequential()
+FCDIM = 128
+FTSIZE = 4
+BUFLEN = 16
+numft = 4
 
-l2cip = Sequential()
-l2sip = Sequential()
-l2cp = Sequential()
-l2sp = Sequential()
-l2sb = Sequential()
-l2cb = Sequential()
+layer_sb = Sequential([
+		Convolution2D(numft, FTSIZE, 256, border_mode='???', input_shape=(1, BUFLEN, 256)),
+		Activation('relu'),
+		Dense(FCDIM)
+])
+layer_cb = Sequential([
+		Convolution2D(numft, FTSIZE, 256, border_mode='???', input_shape=(1, BUFLEN, 256)),
+		Activation('relu'),
+		Dense(FCDIM)
+])
 
-l3fc = Sequential()
-l4fc = Sequential()
-l5fc = Sequential()
-l5tr = Sequential()
+layer_cip = Sequential([Dense(FCDIM, input_dim=(4*256))])
+layer_sip = Sequential([Dense(FCDIM, input_dim=(4*256))])
+layer_cp = Sequential([Dense(FCDIM, input_dim=1024)])
+layer_sp = Sequential([Dense(FCDIM, input_dim=1024)])
 
-model = Sequential()
-model.add(Dense(output_dim=64, input_dim=100))
-model.add(Activation("relu"))
-model.add(Dense(output_dim=10))
-model.add(Activation("softmax"))
+layer_merged = Merge([layer_cip,layer_sip,layer_cp,layer_sp,layer_sb,layer_cb],
+		mode = 'sum')
 
-model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
+total_model = Sequential()
+total_model.add(layer_merged)
+total_model.add(Activation('relu'))
+total_model.add(Dense(2))
+total_model.add(Activation('relu'))
+
+total_model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
+
+#total_model.fit(X,Y)
+#total_model.evaluate(X,Y)
+#total_model.predict(X)
