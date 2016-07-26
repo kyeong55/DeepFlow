@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense, Merge, Activation
+from keras.layers import Dense, Merge, Activation, Convolution2D, Flatten
 
 FCDIM = 128
 FTSIZE = 4
@@ -7,13 +7,15 @@ BUFLEN = 16
 numft = 4
 
 layer_sb = Sequential([
-		Convolution2D(numft, FTSIZE, 256, border_mode='???', input_shape=(1, BUFLEN, 256)),
+		Convolution2D(numft, FTSIZE, 256, border_mode='same', input_shape=(1, BUFLEN, 256)),
 		Activation('relu'),
+		Flatten(),
 		Dense(FCDIM)
 ])
 layer_cb = Sequential([
-		Convolution2D(numft, FTSIZE, 256, border_mode='???', input_shape=(1, BUFLEN, 256)),
+		Convolution2D(numft, FTSIZE, 256, border_mode='same', input_shape=(1, BUFLEN, 256)),
 		Activation('relu'),
+		Flatten(),
 		Dense(FCDIM)
 ])
 
