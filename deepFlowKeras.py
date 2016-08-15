@@ -4,39 +4,76 @@ import sys
 from keras.models import Sequential
 from keras.layers import Dense, Merge, Activation, Convolution2D, Flatten, Reshape
 
+threshold = 8 # KB
+
 FCDIM = 256
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
 
-epoch = 20
+epoch = 4
 batch = 32
 
+loc = 'binary/splited/'
+
 features = ['cip','sip','cp','sp','cb','sb']
-features_comp = ['cp','sp']
-X_train = []
+X_train, Y_train = [], []
+X_test, Y_test = [], []
+X = []
+Y = np.empty(0)
 
-loc = 'binary/'
-loc_comp = 'binary/compressed/'
-part = '_p0'
+input_shape = {}
 
-def load_data():
-	global loc, loc_comp, part
+def load_data_all():
+	global loc
 	global X_train, Y_train
-	global features, features_compressed
+	global features
+
+	for part in train:
+		part = '_' + str(part)
+		X = []
+		for feature in features:
+			X.append(np.load(loc+feature+part+'.npy'))
+			if part == '_0':
+				input_shape[feature] = X[len(X)-1].shape[1:]
+				print 'X ('+feature+'):',
+				print input_shape[feature]
+		X_train.append(X)
+		Y_train.append(np.load(loc+'tr_'+str(threshold)+'kb'+part+'.npy'))
+
+	for part in test:
+		part = '_' + str(part)
+		X = []
+		for feature in features:
+			X.append(np.load(loc+feature+part+'.npy'))
+		X_test.append(X)
+		Y_test.append(np.load(loc+'tr_'+str(threshold)+'kb'+part+'.npy'))
+
+def load_data(num):
+	global loc
+	global X,Y
+	global features
+	part = '_' + str(num)
+	X = []
 	for feature in features:
-		if feature in features_comp:
-			X_train.append(np.load(loc_comp+feature+part+'.npy'))
-		else:
-			X_train.append(np.load(loc+feature+part+'.npy'))
-		print 'X train ('+feature+'): ',
-		print X_train[len(X_train) - 1].shape
-	Y_train = np.load(loc+'tr_2kb'+part+'.npy')
-	print 'Y train: ',
-	print Y_train.shape
+		X.append(np.load(loc+feature+part+'.npy'))
+	Y = np.load(loc+'tr_'+str(threshold)+'kb'+part+'.npy')
+
+def get_input_shape():
+	global X
+	global features
+	global input_shape
+	load_data(19)
+	i = 0
+	for feature in features:
+		input_shape[feature] = X[i].shape[1:]
+		print 'X ('+feature+'):',
+		print input_shape[feature]
+		i += 1
 
 def create_model():
-	global X_train
+	global FCDIM, FTSIZE, BUFLEN, numft
+	global input_shape
 	"""
 	layer_sb = Sequential([
 			Convolution2D(numft, FTSIZE, 257, border_mode='same', input_shape=(1, BUFLEN, 257)),
@@ -60,10 +97,10 @@ def create_model():
 			Dense(FCDIM),
 	])
 
-	layer_cip = Sequential([Dense(FCDIM, input_dim=(X_train[features.index('cip')].shape[1]))])
-	layer_sip = Sequential([Dense(FCDIM, input_dim=(X_train[features.index('sip')].shape[1]))])
-	layer_cp = Sequential([Dense(FCDIM, input_dim=(X_train[features.index('cp')].shape[1]))])
-	layer_sp = Sequential([Dense(FCDIM, input_dim=(X_train[features.index('sp')].shape[1]))])
+	layer_cip = Sequential([Dense(FCDIM, input_dim=(input_shape['cip'][0]))])
+	layer_sip = Sequential([Dense(FCDIM, input_dim=(input_shape['sip'][0]))])
+	layer_cp = Sequential([Dense(FCDIM, input_dim=(input_shape['cp'][0]))])
+	layer_sp = Sequential([Dense(FCDIM, input_dim=(input_shape['sp'][0]))])
 
 	layer_merged = Merge([layer_cip,layer_sip,layer_cp,layer_sp,layer_cb,layer_sb],
 			mode = 'sum')
@@ -78,30 +115,63 @@ def create_model():
 
 	return total_model
 
-print 'Reading binary inputs...'
-load_data()
+TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
 
-print 'Compiling Neural Network Model...'
-model = create_model()
-model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
-
-print 'Training Neural Network Model...'
-model.fit(X_train,Y_train, batch_size=batch, nb_epoch=epoch)
-# model.evaluate(X_train,Y_train, batch_size=batch)
-Y_predict = model.predict(X_train)
-TP, FP, TN, FN = 0, 0, 0, 0
-for i in range(len(Y_predict)):
-	predict = Y_predict[i][0] < Y_predict[i][1]
-	truth = Y_train[i][0] < Y_train[i][1]
-	if predict and truth:
-		TN += 1
-	else:
-		if predict:
-			FN += 1
-		elif truth:
-			FP += 1
+def test_model(model, X_test, Y_test):
+	global TP,FP,TN,FN
+	Y_predict = model.predict(X_test)
+	for i in range(len(Y_predict)):
+		predict = Y_predict[i][0] < Y_predict[i][1]
+		truth = Y_test[i][0] < Y_test[i][1]
+		if predict and truth:
+			TN += 1
 		else:
-			TP += 1
+			if predict:
+				FN += 1
+			elif truth:
+				FP += 1
+			else:
+				TP += 1
 
-print '[TP FP TN FN] = ['+str(TP)+' '+str(FP)+' '+str(TN)+' '+str(FN)+']'
+def run(train, test):
+	global input_shape
+	global epoch, batch
+	global TP,FP,TN,FN
 
+	print '=== Train Set: ',
+	print train
+
+	# print 'Compiling Neural Network Model...'
+	model = create_model()
+	model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
+
+	TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
+
+	# print 'Training Neural Network Model...'
+	for e in range(epoch):
+		for i in train:
+			load_data(i)
+			# print 'Train (' + str(i) + '/' + str(len(train)) + ')'
+			model.fit(X, Y, batch_size=batch, nb_epoch=1, verbose=0)
+
+	# print 'Testing Trained Model...'
+	for i in test:
+		load_data(i)
+		# print 'Test (' + str(i) + '/' + str(len(test)) + ')'
+		test_model(model, X, Y)
+
+	# results
+	print '[TP FP TN FN] = ['+str(int(TP))+' '+str(int(FP))+' '+str(int(TN))+' '+str(int(FN))+']'
+	print 'Precision(S):\t' + str(TP/(TP+FP))
+	print 'Recall(S):\t' + str(TP/(TP+FN))
+	print 'Precision(L):\t' + str(TN/(TN+FN))
+	print 'Recall(L):\t' + str(TN/(TN+FP))
+
+get_input_shape()
+
+for i in range(5):
+	train = range(i*4, (i+1)*4)
+	test = range(0, i*4) + range((i+1)*4, 20)
+	run(train,test)
+
+# model.evaluate(X_train,Y_train, batch_size=batch)

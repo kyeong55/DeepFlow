@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import sys
 
-loc = 'binary/compressed/'
-part = '_p0'
+loc = 'binary/split/compressed/'
+part = ''
 
 def vector(value,size):
 	v = [0]*size
