@@ -4,14 +4,14 @@ import sys
 from keras.models import Sequential
 from keras.layers import Dense, Merge, Activation, Convolution2D, Flatten, Reshape
 
-threshold = 8 # KB
+threshold = 16 # KB
 
 FCDIM = 256
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
 
-epoch = 4
+epoch = 20
 batch = 32
 
 loc = 'binary/splited/'
@@ -65,9 +65,10 @@ def get_input_shape():
 	global input_shape
 	load_data(19)
 	i = 0
+	print '- Input shape:'
 	for feature in features:
 		input_shape[feature] = X[i].shape[1:]
-		print 'X ('+feature+'):',
+		print '  ('+feature+'):',
 		print input_shape[feature]
 		i += 1
 
@@ -90,11 +91,11 @@ def create_model():
 	"""
 	layer_sb = Sequential([
 			Reshape((BUFLEN*257,), input_shape=(1, BUFLEN, 257)),
-			Dense(FCDIM),
+			Dense(FCDIM)
 	])
 	layer_cb = Sequential([
 			Reshape((BUFLEN*257,), input_shape=(1, BUFLEN, 257)),
-			Dense(FCDIM),
+			Dense(FCDIM)
 	])
 
 	layer_cip = Sequential([Dense(FCDIM, input_dim=(input_shape['cip'][0]))])
@@ -141,37 +142,46 @@ def run(train, test):
 	print '=== Train Set: ',
 	print train
 
-	# print 'Compiling Neural Network Model...'
+	print 'Compiling Neural Network Model...'
 	model = create_model()
 	model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
 
 	TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
 
-	# print 'Training Neural Network Model...'
+	sys.stdout.write("\033[F")
+	print 'Training Neural Network Model...'
 	for e in range(epoch):
 		for i in train:
 			load_data(i)
 			# print 'Train (' + str(i) + '/' + str(len(train)) + ')'
 			model.fit(X, Y, batch_size=batch, nb_epoch=1, verbose=0)
 
-	# print 'Testing Trained Model...'
+	sys.stdout.write("\033[F")
+	print 'Testing Trained Model...'
 	for i in test:
 		load_data(i)
 		# print 'Test (' + str(i) + '/' + str(len(test)) + ')'
 		test_model(model, X, Y)
 
 	# results
+	sys.stdout.write("\033[F")
 	print '[TP FP TN FN] = ['+str(int(TP))+' '+str(int(FP))+' '+str(int(TN))+' '+str(int(FN))+']'
 	print 'Precision(S):\t' + str(TP/(TP+FP))
 	print 'Recall(S):\t' + str(TP/(TP+FN))
 	print 'Precision(L):\t' + str(TN/(TN+FN))
 	print 'Recall(L):\t' + str(TN/(TN+FP))
 
+print '- Threshold: ' + str(threshold) + 'KB'
+print '- epoch: ' + str(epoch),
+print ', batch: ' + str(batch)
 get_input_shape()
+
+#run(range(20),range(20))
 
 for i in range(5):
 	train = range(i*4, (i+1)*4)
 	test = range(0, i*4) + range((i+1)*4, 20)
 	run(train,test)
+
 
 # model.evaluate(X_train,Y_train, batch_size=batch)
