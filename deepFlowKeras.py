@@ -4,17 +4,17 @@ import sys
 from keras.models import Sequential
 from keras.layers import Dense, Merge, Activation, Convolution2D, Flatten, Reshape
 
-threshold = 16 # KB
+threshold = 8 # KB
 
 FCDIM = 256
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
 
-epoch = 20
+epoch = 4
 batch = 32
 
-loc = 'binary/splited/'
+loc = 'binary/nothttp/'
 
 features = ['cip','sip','cp','sp','cb','sb']
 X_train, Y_train = [], []
@@ -63,7 +63,7 @@ def get_input_shape():
 	global X
 	global features
 	global input_shape
-	load_data(19)
+	load_data(0)
 	i = 0
 	print '- Input shape:'
 	for feature in features:
@@ -178,10 +178,18 @@ get_input_shape()
 
 #run(range(20),range(20))
 
+"""
 for i in range(5):
 	train = range(i*4, (i+1)*4)
 	test = range(0, i*4) + range((i+1)*4, 20)
 	run(train,test)
-
+"""
+"""
+for i in range(3):
+	train = range(i*3, (i+1)*3)
+	test = range(0, i*3) + range((i+1)*3, 9)
+	run(train,test)
+"""
+run(range(9),range(9))
 
 # model.evaluate(X_train,Y_train, batch_size=batch)

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 
-loc = 'binary/splited/'
+loc = 'binary/http/'
 part = ''
 
 thresholds = [2,4,8,16] # KB
@@ -55,9 +55,10 @@ def write_to_npy(name, np_array):
 	np.save(loc+name, np_array)
 
 print 'Reading flow data...'
-df_total = pd.read_csv('flowData/flow_dump.csv')
-df_cb_total = pd.read_csv('flowData/flow_dump_cb.csv').drop('dummy',axis=1)
-df_sb_total = pd.read_csv('flowData/flow_dump_sb.csv').drop('dummy',axis=1)
+df_http = pd.read_csv('flowData/flow_dump_http.csv')
+df_total = pd.read_csv('flowData/flow_dump.csv')[df_http.http == 1]
+df_cb_total = pd.read_csv('flowData/flow_dump_cb.csv').drop('dummy',axis=1)[df_http.http == 1]
+df_sb_total = pd.read_csv('flowData/flow_dump_sb.csv').drop('dummy',axis=1)[df_http.http == 1]
 
 print 'Vectorizing data...'
 print '(Threshold: ' + str(thresholds) + 'KB, ',
@@ -76,12 +77,12 @@ while i < df_len:
 	df_sb = df_sb_total[i:j]
 	part = '_' + str(i / split_bin)
 	i = j
-#	write_to_npy('cip'+part,ip_vectorize(df.cip))
-#	write_to_npy('sip'+part,ip_vectorize(df.sip))
-#	write_to_npy('cp'+part, port_vectorize(df.cp, cp_list))
-#	write_to_npy('sp'+part, port_vectorize(df.sp, sp_list))
-#	write_to_npy('cb'+part, buf_vectorize(df_cb))
-#	write_to_npy('sb'+part, buf_vectorize(df_sb))
+	write_to_npy('cip'+part,ip_vectorize(df.cip))
+	write_to_npy('sip'+part,ip_vectorize(df.sip))
+	write_to_npy('cp'+part, port_vectorize(df.cp, cp_list))
+	write_to_npy('sp'+part, port_vectorize(df.sp, sp_list))
+	write_to_npy('cb'+part, buf_vectorize(df_cb))
+	write_to_npy('sb'+part, buf_vectorize(df_sb))
 	for threshold in thresholds:
 		write_to_npy('tr_'+str(threshold)+'kb'+part, truth_vectorize(df.flow_size))
 
