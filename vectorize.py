@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 import sys
 
-loc = 'binary/http/'
+loc = 'binary/nonhttp/'
 part = ''
 
 thresholds = [2,4,8,16] # KB
 
-split_bin = 100000
+split_bin = 400000
 
 def vector(value,size):
 	v = [0]*size
@@ -56,9 +56,9 @@ def write_to_npy(name, np_array):
 
 print 'Reading flow data...'
 df_http = pd.read_csv('flowData/flow_dump_http.csv')
-df_total = pd.read_csv('flowData/flow_dump.csv')[df_http.http == 1]
-df_cb_total = pd.read_csv('flowData/flow_dump_cb.csv').drop('dummy',axis=1)[df_http.http == 1]
-df_sb_total = pd.read_csv('flowData/flow_dump_sb.csv').drop('dummy',axis=1)[df_http.http == 1]
+df_total = pd.read_csv('flowData/flow_dump.csv')[df_http.http == 0]
+df_cb_total = pd.read_csv('flowData/flow_dump_cb.csv').drop('dummy',axis=1)[df_http.http == 0]
+df_sb_total = pd.read_csv('flowData/flow_dump_sb.csv').drop('dummy',axis=1)[df_http.http == 0]
 
 print 'Vectorizing data...'
 print '(Threshold: ' + str(thresholds) + 'KB, ',
