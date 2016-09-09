@@ -10,20 +10,23 @@ from sklearn.metrics import (precision_score, recall_score)
 
 threshold = 8 # KB
 
-FCDIM = 256
+FCDIM = 64
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
 
 epoch = 100
-test_epoch = 5
+test_epoch = 1
 batch = 32
+ver = 0
 
-loc = 'binary/splited/'
-log = open('log/log.csv', 'w')
+loc = 'binary/http/'
+log_file = 'log/log_'+str(epoch)+'_'+str(threshold)+'k'+'.csv'
+log = open(log_file,'w')
 log.write('Epoch,Precision_S,Recall_S,Precision_L,Recall_L\n')
+log.close()
 
-features = ['cip','sip','cp','sp','cb','sb']
+features = ['cip','sip','sp','cb','sb']
 X_train, Y_train = [], []
 X_test, Y_test = [], []
 X = []
@@ -118,6 +121,8 @@ def create_model():
 	total_model.add(Activation('relu'))
 	total_model.add(Dense(FCDIM))
 	total_model.add(Activation('relu'))
+	total_model.add(Dense(FCDIM))
+	total_model.add(Activation('relu'))
 	total_model.add(Dense(2))
 	total_model.add(Activation('softmax'))
 
@@ -164,13 +169,16 @@ def run(train, test):
 		for i in train:
 			load_data(i)
 			# print 'Train (' + str(i) + '/' + str(len(train)) + ')'
-			model.fit(X, Y, batch_size=batch, nb_epoch=1, verbose=1)
+			model.fit(X, Y, batch_size=batch, nb_epoch=1, verbose=ver)
 		if ((e+1)%test_epoch == 0):
 			TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
 			for i in test:
 				load_data(i)
 				test_model(model, X, Y)
-			log.write(str(e)+','+str(TP/(TP+FP))+','+str(TP/(TP+FN))+','+str(TN/(TN+FN))+','+str(TN/(TN+FP))+'\n')
+			log = open(log_file,'a')
+			printLog = str(e+1)+','+str(TP/(TP+FP))+','+str(TP/(TP+FN))+','+str(TN/(TN+FN))+','+str(TN/(TN+FP))+'\n'
+			log.write(printLog)
+			log.close()
 
 #	sys.stdout.write("\033[F")
 #	print 'Testing Trained Model...'
@@ -204,7 +212,6 @@ print ', batch: ' + str(batch)
 get_input_shape()
 
 run(range(5),range(5))
-log.close()
 print 'Finish'
 #run(range(20),range(20))
 
