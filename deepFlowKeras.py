@@ -10,7 +10,7 @@ from sklearn.metrics import (precision_score, recall_score)
 
 threshold = 8 # KB
 
-FCDIM = 64
+FCDIM = 32
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
@@ -21,7 +21,7 @@ batch = 32
 ver = 0
 
 loc = 'binary/http/'
-log_file = 'log/log_'+str(epoch)+'_'+str(threshold)+'k'+'.csv'
+log_file = 'log/log_'+str(epoch)+'_'+str(threshold)+'k_'+sys.argv[1]+'.csv'
 log = open(log_file,'w')
 log.write('Epoch,Precision_S,Recall_S,Precision_L,Recall_L\n')
 log.close()
@@ -110,14 +110,17 @@ def create_model():
 
 	layer_cip = Sequential([Dense(FCDIM, input_dim=(input_shape['cip'][0]))])
 	layer_sip = Sequential([Dense(FCDIM, input_dim=(input_shape['sip'][0]))])
-	layer_cp = Sequential([Dense(FCDIM, input_dim=(input_shape['cp'][0]))])
+#	layer_cp = Sequential([Dense(FCDIM, input_dim=(input_shape['cp'][0]))])
 	layer_sp = Sequential([Dense(FCDIM, input_dim=(input_shape['sp'][0]))])
 
-	layer_merged = Merge([layer_cip,layer_sip,layer_cp,layer_sp,layer_cb,layer_sb],
+#	layer_merged = Merge([layer_cip,layer_sip,layer_cp,layer_sp,layer_cb,layer_sb],
+	layer_merged = Merge([layer_cip,layer_sip,layer_sp,layer_cb,layer_sb],
 			mode = 'sum')
 
 	total_model = Sequential()
 	total_model.add(layer_merged)
+	total_model.add(Activation('relu'))
+	total_model.add(Dense(FCDIM))
 	total_model.add(Activation('relu'))
 	total_model.add(Dense(FCDIM))
 	total_model.add(Activation('relu'))
