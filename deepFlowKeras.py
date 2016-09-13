@@ -10,7 +10,9 @@ from sklearn.metrics import (precision_score, recall_score)
 
 threshold = 8 # KB
 
-FCDIM = 32
+FCDIM = 128
+FCNUM = 2
+
 FTSIZE = 4
 BUFLEN = 16
 numft = 4
@@ -21,7 +23,9 @@ batch = 32
 ver = 0
 
 loc = 'binary/http/'
-log_file = 'log/log_'+str(epoch)+'_'+str(threshold)+'k_'+sys.argv[1]+'.csv'
+log_file_name = 'log_'+str(epoch)+'_'+str(threshold)+'k_'+sys.argv[1]
+log_file = 'log/' + log_file_name + '.csv'
+dump_file = 'log/dump/' + log_file_name
 log = open(log_file,'w')
 log.write('Epoch,Precision_S,Recall_S,Precision_L,Recall_L\n')
 log.close()
@@ -33,31 +37,6 @@ X = []
 Y = np.empty(0)
 
 input_shape = {}
-
-def load_data_all():
-	global loc
-	global X_train, Y_train
-	global features
-
-	for part in train:
-		part = '_' + str(part)
-		X = []
-		for feature in features:
-			X.append(np.load(loc+feature+part+'.npy'))
-			if part == '_0':
-				input_shape[feature] = X[len(X)-1].shape[1:]
-				print 'X ('+feature+'):',
-				print input_shape[feature]
-		X_train.append(X)
-		Y_train.append(np.load(loc+'tr_'+str(threshold)+'kb'+part+'.npy'))
-
-	for part in test:
-		part = '_' + str(part)
-		X = []
-		for feature in features:
-			X.append(np.load(loc+feature+part+'.npy'))
-		X_test.append(X)
-		Y_test.append(np.load(loc+'tr_'+str(threshold)+'kb'+part+'.npy'))
 
 def load_data(num):
 	global loc
@@ -120,12 +99,9 @@ def create_model():
 	total_model = Sequential()
 	total_model.add(layer_merged)
 	total_model.add(Activation('relu'))
-	total_model.add(Dense(FCDIM))
-	total_model.add(Activation('relu'))
-	total_model.add(Dense(FCDIM))
-	total_model.add(Activation('relu'))
-	total_model.add(Dense(FCDIM))
-	total_model.add(Activation('relu'))
+	for i in range(FCNUM - 1):
+		total_model.add(Dense(FCDIM))
+		total_model.add(Activation('relu'))
 	total_model.add(Dense(2))
 	total_model.add(Activation('softmax'))
 
@@ -148,6 +124,7 @@ def test_model(model, X_test, Y_test):
 				FP += 1
 			else:
 				TP += 1
+	return Y_predict
 
 def run(train, test):
 	global input_shape
@@ -158,15 +135,17 @@ def run(train, test):
 	print '=== Train Set: ',
 	print train
 
-	print 'Compiling Neural Network Model...'
+	# Compile
 	model = create_model()
 	model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=['accuracy'])
 #	model.compile(loss='binary_crossentropy', optimizer='sgd', metrics=m.get_metrics())
 
 	TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
 
-#	sys.stdout.write("\033[F")
-#	print 'Training Neural Network Model...'
+	# Dump test results continuously
+	results = []
+
+	# Train
 	for e in range(epoch):
 		print '=== Epoch ' + str(e+1) + '/' + str(epoch)
 		for i in train:
@@ -174,17 +153,20 @@ def run(train, test):
 			# print 'Train (' + str(i) + '/' + str(len(train)) + ')'
 			model.fit(X, Y, batch_size=batch, nb_epoch=1, verbose=ver)
 		if ((e+1)%test_epoch == 0):
+			predict = []
 			TP, FP, TN, FN = 0.0, 0.0, 0.0, 0.0
 			for i in test:
 				load_data(i)
-				test_model(model, X, Y)
+				predict.append(test_model(model, X, Y))
+			results.append(np.concatenate(predict, axis=0))
 			log = open(log_file,'a')
 			printLog = str(e+1)+','+str(TP/(TP+FP))+','+str(TP/(TP+FN))+','+str(TN/(TN+FN))+','+str(TN/(TN+FP))+'\n'
 			log.write(printLog)
 			log.close()
 
-#	sys.stdout.write("\033[F")
-#	print 'Testing Trained Model...'
+	np.save(dump_file, np.array(results))
+
+	# Test
 	"""
 	for i in test:
 		load_data(i)
@@ -193,21 +175,20 @@ def run(train, test):
 	"""
 
 	# results
-#	sys.stdout.write("\033[F")
 	print '[TP FP TN FN] = ['+str(int(TP))+' '+str(int(FP))+' '+str(int(TN))+' '+str(int(FN))+']'
 	print 'Precision(S):\t' + str(TP/(TP+FP))
 	print 'Recall(S):\t' + str(TP/(TP+FN))
 	print 'Precision(L):\t' + str(TN/(TN+FN))
 	print 'Recall(L):\t' + str(TN/(TN+FP))
-	"""
-	for i in test:
-		load_data(i)
-		Y_pred = model.predict(X)
-		recall_S = recall_score(Y, Y_pred)
-		precision_S = precision_score(Y, Y_pred)
-		print 'Precision(S):\t' + str(precision_S)
-		print 'Recall(S):\t' + str(recall_S)
-	"""
+
+def addResultInfo():
+	global log_file_name
+	info = open('log/info','a')
+	info.write(log_file_name)
+	info.write('\n\t- FCDIM: '+str(FCDIM))
+	info.write('\n\t- FClayer: '+str(FCNUM))
+	info.write('\n\t- DATA: '+str(loc[7:])+'\n')
+	info.close()
 
 print '- Threshold: ' + str(threshold) + 'KB'
 print '- epoch: ' + str(epoch),
@@ -215,21 +196,14 @@ print ', batch: ' + str(batch)
 get_input_shape()
 
 run(range(5),range(5))
+
+addResultInfo()
 print 'Finish'
-#run(range(20),range(20))
 
 """
 for i in range(5):
-	train = range(i*4, (i+1)*4)
-	test = range(0, i*4) + range((i+1)*4, 20)
+	train = range(i, (i+1))
+	test = range(0, i) + range((i+1), 5)
 	run(train,test)
 """
-"""
-for i in range(3):
-	train = range(i*3, (i+1)*3)
-	test = range(0, i*3) + range((i+1)*3, 9)
-	run(train,test)
-"""
-#run(range(9),range(9))
-
 # model.evaluate(X_train,Y_train, batch_size=batch)
