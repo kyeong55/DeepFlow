@@ -1,3 +1,7 @@
 keras_examples/*
 binary/*
 flowData/*
+log/*
+*.out
+*.pyc
+sftp-config.json
